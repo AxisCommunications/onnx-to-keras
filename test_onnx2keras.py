@@ -1,4 +1,5 @@
 from io import BytesIO
+from tempfile import NamedTemporaryFile
 
 import onnx
 import torch.nn
@@ -17,11 +18,15 @@ def make_onnx_model(net, indata):
     return onnx.load(fd)
 
 
-def convert_and_compare_output(net, indata, precition=6, image_out=True):
+def convert_and_compare_output(net, indata, precition=6, image_out=True, savable=True):
     torch_indata = torch.tensor(indata)
     y1 = net(torch_indata).detach().numpy()
     onnx_model = make_onnx_model(net, torch.zeros_like(torch_indata))
     kernas_net = onnx2keras(onnx_model)
+    if savable:
+        with NamedTemporaryFile() as f:
+            f.close()
+            kernas_net.save(f.name)
     y2 = kernas_net.predict(indata.transpose(0, 2, 3, 1))
     if image_out:
         y2 = y2.transpose(0, 3, 1, 2)
@@ -106,6 +111,14 @@ class TestOnnx:
         class Clamp(Module):
             def forward(self, x):
                 return torch.clamp(x, 0.3, 0.7)
+        net = torch.nn.Sequential(torch.nn.ReLU(), Clamp(), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 224, 224).astype(np.float32)
+        convert_and_compare_output(net, x, savable=False)
+
+    def test_relu6(self):
+        class Clamp(Module):
+            def forward(self, x):
+                return torch.clamp(x, 0, 6)
         net = torch.nn.Sequential(torch.nn.ReLU(), Clamp(), torch.nn.ReLU())
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)
         convert_and_compare_output(net, x)

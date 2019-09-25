@@ -186,7 +186,10 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_clip(self, x, min, max):
-        clip = self.keras.layers.Lambda(lambda x: self.keras.backend.clip(x, min, max))
+        if min == 0:
+            clip = self.keras.layers.ReLU(max)
+        else:
+            clip = self.keras.layers.Lambda(lambda x: self.keras.backend.clip(x, min, max))
         out = clip(x)
         out.data_format = x.data_format
         return [out]
