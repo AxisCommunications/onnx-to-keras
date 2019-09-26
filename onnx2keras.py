@@ -58,6 +58,9 @@ class TfKerasOperations(Operations):
             elif (kernel_shape[0] == kernel_shape[1] and pads[0] == pads[1] == pads[2] == pads[3] and
                   pads[0] * 2 + 1 == kernel_shape[0] and strides == (1, 1) and dilations == (1, 1)):
                 padding = 'same'
+            elif (kernel_shape == (3, 3) and pads == (1,1,1,1) and  strides == (2,2) and dilations == (1, 1) and
+                  x.shape[1] % 2 == 1 and x.shape[2] % 2 == 1):
+                padding = 'same'
             else:
                 # ((top_pad, bottom_pad), (left_pad, right_pad))
                 pad = self.keras.layers.ZeroPadding2D(((pads[0], pads[2]), (pads[1], pads[3])))

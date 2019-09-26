@@ -31,6 +31,7 @@ def convert_and_compare_output(net, indata, precition=6, image_out=True, savable
     if image_out:
         y2 = y2.transpose(0, 3, 1, 2)
     assert_almost_equal(y1, y2, precition)
+    return kernas_net
 
 class GlobalAvgPool(Module):
     def forward(self, x):
@@ -93,10 +94,22 @@ class TestOnnx:
         x = np.random.rand(1, 3, 384, 544).astype(np.float32)
         convert_and_compare_output(net, x)
 
-    def test_conv_stride2_padding(self):
+    def test_conv_stride2_padding_strange(self):
         net = torch.nn.Sequential(torch.nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3))
         x = np.random.rand(1, 3, 384, 544).astype(np.float32)
         convert_and_compare_output(net, x)
+
+    def test_conv_stride2_padding_simple_odd(self):
+        net = torch.nn.Sequential(torch.nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1))
+        x = np.random.rand(1, 3, 223, 223).astype(np.float32)
+        kernas_net = convert_and_compare_output(net, x)
+        assert [l.__class__.__name__ for l in kernas_net.layers] == ['InputLayer', 'Conv2D']
+
+    def test_conv_stride2_padding_simple_even(self):
+        net = torch.nn.Sequential(torch.nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1))
+        x = np.random.rand(1, 3, 224, 224).astype(np.float32)
+        kernas_net = convert_and_compare_output(net, x)
+        # assert [l.__class__.__name__ for l in kernas_net.layers] == ['InputLayer', 'Conv2D']
 
     def test_batchnorm(self):
         bn = torch.nn.BatchNorm2d(3)
