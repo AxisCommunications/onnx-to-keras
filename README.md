@@ -15,13 +15,13 @@ been implemented in keras if implemented by hand in keras.
 
 Installation
 ------------
-```bash
+```
     pip install onnx2keras
 ```
 
 Usage
 -----
-```bash
+```
     onnx2keras <infile.onnx> [<outfile.h5>]
 ```
 
