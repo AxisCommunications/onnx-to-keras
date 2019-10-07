@@ -9,10 +9,10 @@ import numpy as np
 
 class Operations:
     def make_op(self, op_type, inputs, attrs):
-        print(op_type)
-        print([i.shape for i in inputs])
-        print(attrs)
-        print()
+        # print(op_type)
+        # print([i.shape for i in inputs])
+        # print(attrs)
+        # print()
         return getattr(self, 'op_' + op_type.lower())(*inputs, **attrs)
 
 class OnnxConstant: pass
@@ -263,3 +263,14 @@ def onnx2keras(onnx_model):
 
     outputs = [tensors[o.name] for o in onnx_model.graph.output]
     return tf.keras.models.Model(model_inputs, outputs)
+
+def main(infile, outfile=None):
+    if outfile is None:
+        outfile = infile[:-5] if infile[-5:] == '.onnx' else infile
+        outfile += '.h5'
+    model = onnx2keras(onnx.load(infile))
+    model.save(outfile)
+
+if __name__ == '__main__':
+    from fire import Fire
+    Fire(main)
