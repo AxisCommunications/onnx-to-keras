@@ -13,16 +13,10 @@ it will convert in a nice way. With high-level-compatibility we mean that the co
 are constructed using the high-level keras API and should be similar to how the model would have 
 been implemented in keras if it was implemented by hand.
 
-Installation
-------------
-```
-    pip install onnx2keras
-```
-
 Usage
 -----
 ```
-    onnx2keras <infile.onnx> [<outfile.h5>]
+    python3 onnx2keras.py <infile.onnx> [<outfile.h5>]
 ```
 
 
