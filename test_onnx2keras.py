@@ -18,7 +18,7 @@ def make_onnx_model(net, indata):
     return onnx.load(fd)
 
 
-def convert_and_compare_output(net, indata, precition=6, image_out=True, savable=True):
+def convert_and_compare_output(net, indata, precition=5, image_out=True, savable=True):
     torch_indata = torch.tensor(indata)
     y1 = net(torch_indata).detach().numpy()
     onnx_model = make_onnx_model(net, torch.zeros_like(torch_indata))
