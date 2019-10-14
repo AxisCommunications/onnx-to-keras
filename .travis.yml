@@ -2,10 +2,14 @@ sudo: false
 language: python
 python:
 - '3.5'
+- '3.7'
 os:
 - 'linux'
+env:
+- TF="tensorflow"
+- TF="tensorflow==1.14.0"
 addons:
-install: pip install tensorflow torch torchvision onnx
+install: pip install $TF torch torchvision onnx
 script:
 - py.test -v
 deploy:
