@@ -178,10 +178,10 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_unsqueeze(self, x, axes):
-        out = x
         if isinstance(x, Constant):
             for ax in axes:
-                out = np.expand_dims(out, ax)
+                out = np.expand_dims(x, ax).view(Constant)
+                out.data_format = x.data_format
         else:
             for ax in axes:
                 out = self.keras.layers.Lambda(lambda x: self.keras.backend.expand_dims(x, ax))(out)
@@ -241,6 +241,7 @@ def onnx2keras(onnx_model):
     ops = TfKerasOperations()
 
     for init in onnx_model.graph.initializer:
+        print(init.name)
         tensors[init.name] = ops.make_constant(numpy_helper.to_array(init))
 
     model_inputs = []
@@ -254,6 +255,7 @@ def onnx2keras(onnx_model):
         model_inputs.append(tensors[input.name])
 
     for node in onnx_model.graph.node:
+        print(node.op_type, node.input, "->", node.output)
         inputs = [tensors[i] for i in node.input]
         attrs = {a.name: parse_attr(a) for a in node.attribute}
         output_tensors = ops.make_op(node.op_type, inputs, attrs)
