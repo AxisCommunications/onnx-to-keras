@@ -3,8 +3,8 @@
 [![Travis CI][travis-image]][travis-url]
 
 
-[travis-image]: https://travis-ci.com/AxisCommunications/onnx2keras?branch=master
-[travis-url]: https://travis-ci.com/AxisCommunications/onnx2keras
+[travis-image]: https://travis-ci.com/AxisCommunications/onnx-to-keras?branch=master
+[travis-url]: https://travis-ci.com/AxisCommunications/onnx-to-keras
 
 This is a tool for converting onnx models (as exported by for example pytorch) into tensorflow keras 
 models. It focuses on inference performance and what we call high-level-compatibility rather than 
