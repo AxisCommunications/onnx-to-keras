@@ -111,7 +111,10 @@ class TfKerasOperations(Operations):
             if pads == (0, 0, 0, 0):
                 padding = 'valid'
             else:
-                raise NotImplementedError
+                # ((top_pad, bottom_pad), (left_pad, right_pad))
+                pad = self.keras.layers.ZeroPadding2D(((pads[0], pads[2]), (pads[1], pads[3])))
+                x = pad(x)
+                padding = 'valid'
             out = self.keras.layers.MaxPool2D(kernel_shape, strides, padding)(x)
             out.data_format = InterleavedImageBatch
             return [out]

@@ -71,6 +71,11 @@ class TestOnnx:
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_maxpool_resnet(self):
+        net = torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        x = np.random.rand(1, 192, 272, 64).astype(np.float32)
+        convert_and_compare_output(net, x)
+
     def test_concat(self):
         for axis in range(1,4):
             class Dbl(torch.nn.Module):
