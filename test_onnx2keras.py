@@ -99,6 +99,11 @@ class TestOnnx:
         x = np.random.rand(1, 3, 384, 544).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_conv_transpose_no_bias(self):
+        net = torch.nn.Sequential(torch.nn.ConvTranspose2d(3, 16, 5, 2, bias=False), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 112, 112).astype(np.float32)
+        convert_and_compare_output(net, x)
+
     def test_conv_stride2_padding_strange(self):
         net = torch.nn.Sequential(torch.nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3))
         x = np.random.rand(1, 3, 384, 544).astype(np.float32)

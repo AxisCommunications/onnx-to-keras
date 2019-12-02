@@ -129,9 +129,21 @@ class TfKerasOperations(Operations):
         out.data_format = tensors[0].data_format
         return [out]
 
-    def op_convtranspose(self, x, weights, bias, kernel_shape, strides, pads, dilations, group):
+    def op_convtranspose(self, x, weights, bias=None, kernel_shape=None, strides=None, pads=None, dilations=None, group=None):
+        assert kernel_shape is not None
+        assert strides is not None
+        assert pads is not None
+        assert dilations is not None
+        assert group is not None
         assert weights.data_format is OnnxConstant # XXX Assumes no ops on weights
-        assert bias.data_format is OnnxConstant # XXX Assumes no ops on weights
+        if bias is None:
+            use_bias = False
+            bias_initializer = None
+        else:
+            assert bias.data_format is OnnxConstant # XXX Assumes no ops on weights
+            use_bias = True
+            bias_initializer = self.keras.initializers.Constant(bias.view(np.ndarray))
+
         if len(kernel_shape) == 2:
             assert x.data_format is InterleavedImageBatch
             assert kernel_shape == weights.shape[2:4]
@@ -151,11 +163,10 @@ class TfKerasOperations(Operations):
             # Torch: (in_channels, out_channels, kH, kW)
             weights = weights.transpose(2, 3, 1, 0)
             weights_initializer = self.keras.initializers.Constant(weights.view(np.ndarray))
-            bias_initializer = self.keras.initializers.Constant(bias.view(np.ndarray))
             conv = self.keras.layers.Conv2DTranspose(weights.shape[2], kernel_shape, strides,
                                                      dilation_rate=dilations, padding=padding,
                                                      kernel_initializer=weights_initializer,
-                                                     bias_initializer=bias_initializer)
+                                                     use_bias=use_bias, bias_initializer=bias_initializer)
             out = conv(x)
             assert out.shape[1] == h_out
             assert out.shape[2] == w_out
