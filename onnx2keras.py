@@ -278,12 +278,15 @@ def onnx2keras(onnx_model):
     outputs = [tensors[o.name] for o in onnx_model.graph.output]
     return tf.keras.models.Model(model_inputs, outputs)
 
-def main(infile, outfile=None):
+def main(infile, outfile=None, export_saved_model=False):
     if outfile is None:
         outfile = infile[:-5] if infile[-5:] == '.onnx' else infile
         outfile += '.h5'
     model = onnx2keras(onnx.load(infile))
-    model.save(outfile)
+    if export_saved_model:
+        tf.keras.experimental.export_saved_model(model, "tst.tf")
+    else:
+        model.save(outfile)
 
 if __name__ == '__main__':
     from fire import Fire
