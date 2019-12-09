@@ -4,6 +4,7 @@ from tempfile import NamedTemporaryFile
 import onnx
 import torch.nn
 from torch.nn import Module
+import torch.nn.functional as F
 from torchvision import models
 from numpy.testing import assert_almost_equal
 import numpy as np
@@ -191,11 +192,43 @@ class TestOnnx:
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)
         convert_and_compare_output(net, x, image_out=False)
 
-    def test_inception_v3(self):
-        net = models.Inception3(aux_logits=False)
-        net.eval()
-        x = np.random.rand(1, 3, 299, 299).astype(np.float32)
+    def test_avg_pool_pad(self):
+        class PadTst(Module):
+            def forward(self, x):
+                return F.avg_pool2d(x, kernel_size=3, stride=1, padding=1)
+        net = torch.nn.Sequential(PadTst(), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 224, 224).astype(np.float32)
+        convert_and_compare_output(net, x)
+
+    def test_avg_pool_pad_asym(self):
+        class PadTst(Module):
+            def forward(self, x):
+                return F.avg_pool2d(x, kernel_size=(3, 6), stride=(1, 2), padding=(1, 2))
+        net = torch.nn.Sequential(PadTst(), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 224, 224).astype(np.float32)
+        convert_and_compare_output(net, x)
+
+    def test_gloabl_avg_pool(self):
+        class AvgTst(Module):
+            def forward(self, x):
+                return F.adaptive_avg_pool2d(x, (1, 1))
+        net = torch.nn.Sequential(AvgTst(), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 224, 224).astype(np.float32)
+        convert_and_compare_output(net, x)
+
+    def test_flatten(self):
+        class Tst(Module):
+            def forward(self, x):
+                return torch.flatten(x, 1)
+        net = torch.nn.Sequential(Tst(), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 1, 1).astype(np.float32)
         convert_and_compare_output(net, x, image_out=False)
 
-    # def test_pad(self):
+    # def test_inception_v3(self):
+    #     net = models.Inception3(aux_logits=False)
+    #     net.eval()
+    #     x = np.random.rand(1, 3, 299, 299).astype(np.float32)
+    #     convert_and_compare_output(net, x, image_out=False, savable=False)
+
+
 

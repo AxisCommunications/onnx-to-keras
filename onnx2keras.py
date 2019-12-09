@@ -9,10 +9,10 @@ import numpy as np
 
 class Operations:
     def make_op(self, op_type, inputs, attrs):
-        # print(op_type)
-        # print([i.shape for i in inputs])
-        # print(attrs)
-        # print()
+        print(op_type)
+        print([i.shape for i in inputs])
+        print(attrs)
+        print()
         return getattr(self, 'op_' + op_type.lower())(*inputs, **attrs)
 
 class OnnxConstant: pass
@@ -238,6 +238,57 @@ class TfKerasOperations(Operations):
         else:
             raise NotImplementedError
         return [out]
+
+    def op_pad(self, x, pads, mode, value=0.0):
+        assert x.data_format is InterleavedImageBatch
+        if mode == b'constant' and len(pads) == 8:
+            assert len(x.shape) * 2 == len(pads)
+            if pads[0] == pads[1] == pads[4] == pads[5] == 0:
+                # ((top_pad, bottom_pad), (left_pad, right_pad))
+                pad = self.keras.layers.ZeroPadding2D(((pads[2], pads[6]), (pads[3], pads[7])))
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+        out = pad(x)
+        out.data_format = InterleavedImageBatch
+        return [out]
+
+    def op_averagepool(self, x, kernel_shape, pads, strides):
+        assert x.data_format is InterleavedImageBatch
+        if len(x.shape) == 4:
+            if pads == (0,0,0,0):
+                padding = 'valid'
+            else:
+                raise NotImplementedError
+            out = self.keras.layers.AveragePooling2D(kernel_shape, strides, padding)(x)
+        else:
+            raise NotImplementedError
+        out.data_format = InterleavedImageBatch
+        return [out]
+
+    def op_globalaveragepool(self, x):
+        assert x.data_format is InterleavedImageBatch
+        class GlobalAveragePooling2DKeepDim(self.keras.layers.GlobalAveragePooling2D):
+            def call(me, inputs):
+                if me.data_format == 'channels_last':
+                    return self.keras.backend.mean(inputs, axis=[1, 2], keepdims=True)
+        if len(x.shape) == 4:
+            out = GlobalAveragePooling2DKeepDim()(x)
+        else:
+            raise NotImplementedError
+        out.data_format = InterleavedImageBatch
+        return [out]
+
+    def op_flatten(self, x, axis):
+        if axis == 1 and len(x.shape) == 4 and x.shape[1] == 1 and x.shape[2] == 1:
+            out = self.keras.layers.Flatten()(x)
+        else:
+            raise NotImplementedError
+        out.data_format = VectorBatch
+        return [out]
+
+
 
 def parse_attr(a):
     if a.type == onnx.AttributeProto.INT:
