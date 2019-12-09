@@ -191,3 +191,9 @@ class TestOnnx:
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)
         convert_and_compare_output(net, x, image_out=False)
 
+    def test_inception_v3(self):
+        net = models.Inception3(aux_logits=False)
+        net.eval()
+        x = np.random.rand(1, 3, 299, 299).astype(np.float32)
+        convert_and_compare_output(net, x, image_out=False)
+
