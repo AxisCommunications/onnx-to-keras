@@ -246,6 +246,8 @@ def parse_attr(a):
         return tuple(a.ints)
     elif a.type == onnx.AttributeProto.FLOAT:
         return a.f
+    elif a.type == onnx.AttributeProto.STRING:
+        return a.s
     else:
         raise NotImplementedError
 
