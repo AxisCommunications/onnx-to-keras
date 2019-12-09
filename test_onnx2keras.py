@@ -191,3 +191,6 @@ class TestOnnx:
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)
         convert_and_compare_output(net, x, image_out=False)
 
+    # def test_pad(self):
+
+
