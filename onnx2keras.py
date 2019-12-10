@@ -9,10 +9,10 @@ import numpy as np
 
 class Operations:
     def make_op(self, op_type, inputs, attrs):
-        print(op_type)
-        print([i.shape for i in inputs])
-        print(attrs)
-        print()
+        # print(op_type)
+        # print([i.shape for i in inputs])
+        # print(attrs)
+        # print()
         return getattr(self, 'op_' + op_type.lower())(*inputs, **attrs)
 
 class OnnxConstant: pass
