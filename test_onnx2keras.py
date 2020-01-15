@@ -224,6 +224,16 @@ class TestOnnx:
         x = np.random.rand(1, 3, 1, 1).astype(np.float32)
         convert_and_compare_output(net, x, image_out=False)
 
+    def test_vector_pad(self):
+        class VectorPad2D(Module):
+            def forward(self, x):
+                tt = [torch.nn.functional.pad(x[:, i:i + 1], [1,1,1,1], 'constant', [1,2,3][i])
+                      for i in range(x.shape[1])]
+                return torch.cat(tt, 1)
+        net = torch.nn.Sequential(VectorPad2D(), torch.nn.ReLU())
+        x = np.random.rand(2, 3, 5, 5).astype(np.float32)
+        convert_and_compare_output(net, x)
+
     # def test_inception_v3(self):
     #     net = models.Inception3(aux_logits=False)
     #     net.eval()

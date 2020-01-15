@@ -125,8 +125,8 @@ class TfKerasOperations(Operations):
         axis = (0, 3, 1, 2)[axis]
         out = self.keras.layers.Concatenate(axis)(list(tensors))
         for t in tensors:
-            assert tensors[0].data_format is t.data_format
-        out.data_format = tensors[0].data_format
+            assert t.data_format is InterleavedImageBatch
+        out.data_format = InterleavedImageBatch
         return [out]
 
     def op_convtranspose(self, x, weights, bias=None, kernel_shape=None, strides=None, pads=None, dilations=None, group=None):
@@ -192,12 +192,13 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_unsqueeze(self, x, axes):
+        out = x
         if isinstance(x, Constant):
-            for ax in axes:
-                out = np.expand_dims(x, ax).view(Constant)
-                out.data_format = x.data_format
+            for ax in sorted(axes):
+                out = np.expand_dims(out, ax).view(Constant)
+            out.data_format = x.data_format
         else:
-            for ax in axes:
+            for ax in sorted(axes):
                 out = self.keras.layers.Lambda(lambda x: self.keras.backend.expand_dims(x, ax))(out)
             out.data_format = None
         return [out]
@@ -245,7 +246,12 @@ class TfKerasOperations(Operations):
             assert len(x.shape) * 2 == len(pads)
             if pads[0] == pads[1] == pads[4] == pads[5] == 0:
                 # ((top_pad, bottom_pad), (left_pad, right_pad))
-                pad = self.keras.layers.ZeroPadding2D(((pads[2], pads[6]), (pads[3], pads[7])))
+                if value == 0.0:
+                    paddings = ((pads[2], pads[6]), (pads[3], pads[7]))
+                    pad = self.keras.layers.ZeroPadding2D(paddings)
+                else:
+                    paddings = ((0,0), (pads[2], pads[6]), (pads[3], pads[7]), (0,0))
+                    pad = self.keras.layers.Lambda(lambda x: tf.pad(x, paddings, constant_values=value))
             else:
                 raise NotImplementedError
         else:
@@ -288,6 +294,15 @@ class TfKerasOperations(Operations):
         out.data_format = VectorBatch
         return [out]
 
+    def op_slice(self, x, axes, starts, ends):
+        assert x.data_format is InterleavedImageBatch
+        if axes != (1,) or len(x.shape) != 4 or starts[0] == ends[0]:
+            raise NotImplementedError
+        out = self.keras.layers.Lambda(lambda x: x[:,:,:,starts[0]:ends[0]])(x)
+        out.data_format = InterleavedImageBatch
+        return [out]
+
+        self.keras.layers.Slice
 
 
 def parse_attr(a):
