@@ -25,6 +25,20 @@ class Constant(np.ndarray):
 class TfKerasOperations(Operations):
     keras = tf.keras
 
+    def parse_attr(self, a):
+        if a.type == onnx.AttributeProto.INT:
+            return a.i
+        elif a.type == onnx.AttributeProto.INTS:
+            return tuple(a.ints)
+        elif a.type == onnx.AttributeProto.FLOAT:
+            return a.f
+        elif a.type == onnx.AttributeProto.STRING:
+            return a.s
+        elif a.type == onnx.AttributeProto.TENSOR:
+            return self.make_constant(numpy_helper.to_array(a.t))
+        else:
+            raise NotImplementedError
+
     def make_constant(self, x):
         return np.asarray(x).view(Constant)
 
@@ -218,6 +232,12 @@ class TfKerasOperations(Operations):
         out.data_format = x1.data_format
         return [out]
 
+    def op_sub(self, x1, x2):
+        assert x1.data_format == x2.data_format
+        out = self.keras.layers.Subtract()([x1, x2])
+        out.data_format = x1.data_format
+        return [out]
+
     def op_reducemean(self, x, axes, keepdims):
         assert x.data_format is InterleavedImageBatch
         if axes == (2, 3) and keepdims == 0:
@@ -302,20 +322,11 @@ class TfKerasOperations(Operations):
         out.data_format = InterleavedImageBatch
         return [out]
 
-        self.keras.layers.Slice
+    def op_constant(self, value):
+        out = value.transpose([0, 2, 3, 1])
+        out.data_format = InterleavedImageBatch
+        return [out]
 
-
-def parse_attr(a):
-    if a.type == onnx.AttributeProto.INT:
-        return a.i
-    elif a.type == onnx.AttributeProto.INTS:
-        return tuple(a.ints)
-    elif a.type == onnx.AttributeProto.FLOAT:
-        return a.f
-    elif a.type == onnx.AttributeProto.STRING:
-        return a.s
-    else:
-        raise NotImplementedError
 
 
 def onnx2keras(onnx_model):
@@ -337,7 +348,7 @@ def onnx2keras(onnx_model):
 
     for node in onnx_model.graph.node:
         inputs = [tensors[i] for i in node.input]
-        attrs = {a.name: parse_attr(a) for a in node.attribute}
+        attrs = {a.name: ops.parse_attr(a) for a in node.attribute}
         output_tensors = ops.make_op(node.op_type, inputs, attrs)
         assert len(output_tensors) == len(node.output)
         for n, t in zip(node.output, output_tensors):
