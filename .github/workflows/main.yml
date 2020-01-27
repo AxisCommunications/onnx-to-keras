@@ -23,6 +23,7 @@ jobs:
     - name: Test with pytest
       run: py.test -v
     - name: Build and publish
+      if: github.ref == 'refs/branches/stable'
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
