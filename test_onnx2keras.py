@@ -241,7 +241,7 @@ class TestOnnx:
                 return torch.nn.functional.pad(x - c, [1,1,1,1]) + c
         net = torch.nn.Sequential(VectorPad2D(), torch.nn.ReLU())
         x = np.random.rand(1, 3, 5, 5).astype(np.float32)
-        convert_and_compare_output(net, x)
+        convert_and_compare_output(net, x, savable=False)
 
     def test_vector_pad_addhack_asym(self):
         class VectorPad2D(Module):
@@ -250,7 +250,7 @@ class TestOnnx:
                 return torch.nn.functional.pad(x - c, [1,0,1,0]) + c
         net = torch.nn.Sequential(VectorPad2D(), torch.nn.ReLU())
         x = np.random.rand(1, 3, 5, 5).astype(np.float32)
-        convert_and_compare_output(net, x)
+        convert_and_compare_output(net, x, savable=False)
 
     # def test_inception_v3(self):
     #     net = models.Inception3(aux_logits=False)
