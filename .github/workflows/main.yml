@@ -19,7 +19,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip setuptools
-        pip install ${{ matrix.tensorflow-package }} torch torchvision onnx
+        pip install ${{ matrix.tensorflow-package }} torch torchvision onnx pytest
     - name: Test with pytest
       run: py.test -v
     - name: Build and publish
