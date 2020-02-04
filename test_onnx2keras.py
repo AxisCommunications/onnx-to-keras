@@ -243,6 +243,15 @@ class TestOnnx:
         x = np.random.rand(1, 3, 5, 5).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_vector_pad_addhack_asym(self):
+        class VectorPad2D(Module):
+            def forward(self, x):
+                c = torch.tensor([1,2,3]).reshape(1, 3, 1, 1)
+                return torch.nn.functional.pad(x - c, [1,0,1,0]) + c
+        net = torch.nn.Sequential(VectorPad2D(), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 5, 5).astype(np.float32)
+        convert_and_compare_output(net, x)
+
     # def test_inception_v3(self):
     #     net = models.Inception3(aux_logits=False)
     #     net.eval()
