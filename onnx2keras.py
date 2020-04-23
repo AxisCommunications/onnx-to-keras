@@ -105,6 +105,11 @@ class TfKerasOperations(Operations):
         out.data_format = x.data_format
         return [out]
 
+    def op_sigmoid(self, x):
+        out = self.keras.layers.Lambda(lambda x: self.keras.activations.sigmoid(x))(x)
+        out.data_format = x.data_format
+        return [out]
+
     def op_prelu(self, x, alpha):
         assert alpha.data_format is OnnxConstant # XXX Assumes no ops on alpha
         if len(alpha) == 1:

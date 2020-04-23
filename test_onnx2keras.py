@@ -252,6 +252,11 @@ class TestOnnx:
         x = np.random.rand(1, 3, 5, 5).astype(np.float32)
         convert_and_compare_output(net, x, savable=False)
 
+    def test_sigmoid(self):
+        net = torch.nn.Sequential(torch.nn.Conv2d(3, 16, 7), torch.nn.Sigmoid())
+        x = np.random.rand(1, 3, 224, 224).astype(np.float32)
+        convert_and_compare_output(net, x, savable=False)
+
     # def test_inception_v3(self):
     #     net = models.Inception3(aux_logits=False)
     #     net.eval()
