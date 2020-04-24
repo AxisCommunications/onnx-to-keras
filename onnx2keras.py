@@ -400,7 +400,7 @@ class TfKerasOperations(Operations):
         assert len(scales) == 4
         assert mode in (b'nearest', b'bilinear')
         assert x.data_format is InterleavedImageBatch
-        out = tf.keras.layers.UpSampling2D(size=scales[2:], interpolation=mode.decode())(x)
+        out = tf.keras.layers.UpSampling2D(size=scales[2:].astype(int), interpolation=mode.decode())(x)
         out.data_format = InterleavedImageBatch
         return [out]
 
