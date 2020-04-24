@@ -141,11 +141,14 @@ class TfKerasOperations(Operations):
             raise NotImplementedError
 
     def op_concat(self, *tensors, axis):
-        axis = (0, 3, 1, 2)[axis]
-        out = self.keras.layers.Concatenate(axis)(list(tensors))
-        for t in tensors:
-            assert t.data_format is InterleavedImageBatch
-        out.data_format = InterleavedImageBatch
+        if all(t.data_format is InterleavedImageBatch for t in tensors):
+            axis = (0, 3, 1, 2)[axis]
+            out = self.keras.layers.Concatenate(axis)(list(tensors))
+            out.data_format = InterleavedImageBatch
+        elif all(t.data_format is OnnxConstant for t in tensors):
+            out = self.make_constant(np.concatenate(tensors, axis))
+        else:
+            raise NotImplementedError
         return [out]
 
     def op_convtranspose(self, x, weights, bias=None, kernel_shape=None, strides=None, pads=None, dilations=None, group=None):
@@ -320,17 +323,88 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_slice(self, x, axes, starts, ends):
-        assert x.data_format is InterleavedImageBatch
-        if axes != (1,) or len(x.shape) != 4 or starts[0] == ends[0]:
+        if x.data_format is InterleavedImageBatch:
+            if axes != (1,) or len(x.shape) != 4 or starts[0] == ends[0]:
+                raise NotImplementedError
+            out = self.keras.layers.Lambda(lambda x: x[:,:,:,starts[0]:ends[0]])(x)
+            out.data_format = InterleavedImageBatch
+        elif x.data_format is OnnxConstant:
+            if axes != (0,):
+                raise NotImplementedError
+            out = self.make_constant(x[starts[0]:ends[0]])
+        else:
             raise NotImplementedError
-        out = self.keras.layers.Lambda(lambda x: x[:,:,:,starts[0]:ends[0]])(x)
-        out.data_format = InterleavedImageBatch
         return [out]
 
     def op_constant(self, value):
-        out = value.transpose([0, 2, 3, 1])
+        if len(value.shape) == 4:
+            out = value.transpose([0, 2, 3, 1])
+            out.data_format = InterleavedImageBatch
+        else:
+            out = value
+            out.data_format = OnnxConstant
+        return [out]
+
+    def op_shape(self, x):
+        return [self.make_constant(list(map(int, x.shape)))]
+
+    def op_gather(self, x, indices, axis=0):
+        assert x.data_format is OnnxConstant
+        if axis == 0:
+            return [self.make_constant(x[indices])]
+        else:
+            raise NotImplementedError
+
+    def op_cast(self, x, to):
+        assert x.data_format is OnnxConstant
+        dtype = {
+            0: None, # UNDEFINED
+            1: np.float,
+            2: np.uint8,
+            3: np.int8,
+            4: np.uint16,
+            5: np.int16,
+            6: np.int32,
+            7: np.int64,
+            8: str,
+            9: np.bool,
+            10: np.float16,
+            11: np.double,
+            12: np.uint32,
+            13: np.uint64,
+            14: np.complex64,
+            15: np.complex128,
+            # // Non-IEEE floating-point format based on IEEE754 single-precision
+            # // floating-point number truncated to 16 bits.
+            # // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
+            #BFLOAT16 = 16;
+        }[to]
+        return [self.make_constant(x.astype(dtype))]
+
+    def op_mul(self, a, b):
+        assert a.data_format is OnnxConstant
+        assert b.data_format is OnnxConstant
+        return [self.make_constant(a * b)]
+
+    def op_floor(self, x):
+        assert x.data_format is OnnxConstant
+        return [self.make_constant(np.floor(x))]
+
+    def op_div(self, a, b):
+        assert a.data_format is OnnxConstant
+        assert b.data_format is OnnxConstant
+        return [self.make_constant(a / b)]
+
+    def op_upsample(self, x, scales, mode='nearest'):
+        assert scales[0] == scales[1] == 1
+        assert len(scales) == 4
+        assert mode in (b'nearest', b'bilinear')
+        assert x.data_format is InterleavedImageBatch
+        out = tf.keras.layers.UpSampling2D(size=scales[2:], interpolation=mode.decode())(x)
         out.data_format = InterleavedImageBatch
         return [out]
+
+
 
 
 
