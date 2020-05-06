@@ -106,7 +106,7 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_sigmoid(self, x):
-        out = self.keras.layers.Lambda(lambda x: self.keras.activations.sigmoid(x))(x)
+        out = self.keras.activations.sigmoid(x)
         out.data_format = x.data_format
         return [out]
 
@@ -222,16 +222,15 @@ class TfKerasOperations(Operations):
             out.data_format = x.data_format
         else:
             for ax in sorted(axes):
-                out = self.keras.layers.Lambda(lambda x: self.keras.backend.expand_dims(x, ax))(out)
+                out = self.keras.backend.expand_dims(out, ax)
             out.data_format = None
         return [out]
 
     def op_clip(self, x, min, max):
         if min == 0:
-            clip = self.keras.layers.ReLU(max)
+            out = self.keras.layers.ReLU(max)(x)
         else:
-            clip = self.keras.layers.Lambda(lambda x: self.keras.backend.clip(x, min, max))
-        out = clip(x)
+            out = self.keras.backend.clip(x, min, max)
         out.data_format = x.data_format
         return [out]
 
@@ -277,15 +276,14 @@ class TfKerasOperations(Operations):
                 # ((top_pad, bottom_pad), (left_pad, right_pad))
                 if value == 0.0:
                     paddings = ((pads[2], pads[6]), (pads[3], pads[7]))
-                    pad = self.keras.layers.ZeroPadding2D(paddings)
+                    out = self.keras.layers.ZeroPadding2D(paddings)(x)
                 else:
                     paddings = ((0,0), (pads[2], pads[6]), (pads[3], pads[7]), (0,0))
-                    pad = self.keras.layers.Lambda(lambda x: tf.pad(x, paddings, constant_values=value))
+                    out = tf.pad(x, paddings, constant_values=value)
             else:
                 raise NotImplementedError
         else:
             raise NotImplementedError
-        out = pad(x)
         out.data_format = InterleavedImageBatch
         return [out]
 
@@ -327,7 +325,7 @@ class TfKerasOperations(Operations):
         if x.data_format is InterleavedImageBatch:
             if axes != (1,) or len(x.shape) != 4 or starts[0] == ends[0]:
                 raise NotImplementedError
-            out = self.keras.layers.Lambda(lambda x: x[:,:,:,starts[0]:ends[0]])(x)
+            out = x[:,:,:,starts[0]:ends[0]]
             out.data_format = InterleavedImageBatch
         elif x.data_format is OnnxConstant:
             if axes != (0,):

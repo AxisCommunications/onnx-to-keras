@@ -269,7 +269,7 @@ class TestOnnx:
                 return x * (maxmap == x)
         net = torch.nn.Sequential(EqProd(), torch.nn.ReLU())
         x = np.random.rand(1, 3, 5, 5).astype(np.float32)
-        convert_and_compare_output(net, x)
+        convert_and_compare_output(net, x, savable=False)
 
     def test_adaptive_avgpool_reshape(self):
         class Net(Module):
