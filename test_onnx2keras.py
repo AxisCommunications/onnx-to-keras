@@ -241,7 +241,7 @@ class TestOnnx:
                 return torch.nn.functional.pad(x - c, [1,1,1,1]) + c
         net = torch.nn.Sequential(VectorPad2D(), torch.nn.ReLU())
         x = np.random.rand(1, 3, 5, 5).astype(np.float32)
-        convert_and_compare_output(net, x, savable=False)
+        convert_and_compare_output(net, x)
 
     def test_vector_pad_addhack_asym(self):
         class VectorPad2D(Module):
@@ -250,17 +250,17 @@ class TestOnnx:
                 return torch.nn.functional.pad(x - c, [1,0,1,0]) + c
         net = torch.nn.Sequential(VectorPad2D(), torch.nn.ReLU())
         x = np.random.rand(1, 3, 5, 5).astype(np.float32)
-        convert_and_compare_output(net, x, savable=False)
+        convert_and_compare_output(net, x)
 
     def test_sigmoid(self):
         net = torch.nn.Sequential(torch.nn.Conv2d(3, 16, 7), torch.nn.Sigmoid())
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)
-        convert_and_compare_output(net, x, savable=False)
+        convert_and_compare_output(net, x)
 
     def test_upsample_nearest(self):
         net = torch.nn.Sequential(torch.nn.UpsamplingNearest2d(scale_factor=2), torch.nn.ReLU())
         x = np.random.rand(1, 3, 32, 32).astype(np.float32)
-        convert_and_compare_output(net, x, savable=False)
+        convert_and_compare_output(net, x)
 
     def test_eq_mul(self):
         class EqProd(Module):
@@ -269,7 +269,7 @@ class TestOnnx:
                 return x * (maxmap == x)
         net = torch.nn.Sequential(EqProd(), torch.nn.ReLU())
         x = np.random.rand(1, 3, 5, 5).astype(np.float32)
-        convert_and_compare_output(net, x, savable=False)
+        convert_and_compare_output(net, x)
 
     def test_adaptive_avgpool_reshape(self):
         class Net(Module):
@@ -286,7 +286,7 @@ class TestOnnx:
     #     net = models.Inception3(aux_logits=False)
     #     net.eval()
     #     x = np.random.rand(1, 3, 299, 299).astype(np.float32)
-    #     convert_and_compare_output(net, x, image_out=False, savable=False)
+    #     convert_and_compare_output(net, x, image_out=False)
 
 
 

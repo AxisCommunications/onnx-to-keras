@@ -302,12 +302,8 @@ class TfKerasOperations(Operations):
 
     def op_globalaveragepool(self, x):
         assert x.data_format is InterleavedImageBatch
-        class GlobalAveragePooling2DKeepDim(self.keras.layers.GlobalAveragePooling2D):
-            def call(me, inputs):
-                if me.data_format == 'channels_last':
-                    return self.keras.backend.mean(inputs, axis=[1, 2], keepdims=True)
         if len(x.shape) == 4:
-            out = GlobalAveragePooling2DKeepDim()(x)
+            out = self.keras.backend.mean(x, axis=[1, 2], keepdims=True)
         else:
             raise NotImplementedError
         out.data_format = InterleavedImageBatch

@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.5, 3.7]
-        tensorflow-package: ['tensorflow', 'tensorflow==1.14.0']
+        tensorflow-package: ['tensorflow', 'tensorflow==1.15.2']
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
