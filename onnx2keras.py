@@ -415,11 +415,14 @@ class TfKerasOperations(Operations):
 
     def op_equal(self, x, y):
         assert x.data_format is y.data_format
-        print(x)
-        print(y)
-        # out = self.keras.layers.Lambda(lambda x: self.keras.backend.equal)(x, y)
         out = self.keras.backend.equal(x, y)
         out.data_format = x.data_format
+        return [out]
+
+    def op_reshape(self, x, shape):
+        assert x.shape[0] == shape[0]
+        out = tf.keras.layers.Reshape(shape[1:])(x)
+        out.data_format = VectorBatch
         return [out]
 
 

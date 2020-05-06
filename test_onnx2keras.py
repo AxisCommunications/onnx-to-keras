@@ -271,6 +271,17 @@ class TestOnnx:
         x = np.random.rand(1, 3, 5, 5).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_adaptive_avgpool_reshape(self):
+        class Net(Module):
+            def forward(self, x):
+                return F.adaptive_avg_pool2d(x, 1).reshape(x.shape[0], -1)
+        net = torch.nn.Sequential(Net(), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 16, 16).astype(np.float32)
+        convert_and_compare_output(net, x, image_out=False)
+        x = np.random.rand(4, 3, 16, 16).astype(np.float32)
+        convert_and_compare_output(net, x, image_out=False)
+
+
     # def test_inception_v3(self):
     #     net = models.Inception3(aux_logits=False)
     #     net.eval()
