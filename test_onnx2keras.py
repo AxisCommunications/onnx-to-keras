@@ -262,6 +262,15 @@ class TestOnnx:
         x = np.random.rand(1, 3, 32, 32).astype(np.float32)
         convert_and_compare_output(net, x, savable=False)
 
+    def test_eq_mul(self):
+        class EqProd(Module):
+            def forward(self, x):
+                maxmap = F.max_pool2d(x, 3, 1, 1, 1, False, False)
+                return x * (maxmap == x)
+        net = torch.nn.Sequential(EqProd(), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 5, 5).astype(np.float32)
+        convert_and_compare_output(net, x)
+
     # def test_inception_v3(self):
     #     net = models.Inception3(aux_logits=False)
     #     net.eval()

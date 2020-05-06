@@ -124,7 +124,8 @@ class TfKerasOperations(Operations):
         out.data_format = x.data_format
         return [out]
 
-    def op_maxpool(self, x, kernel_shape, pads, strides):
+    def op_maxpool(self, x, kernel_shape, pads, strides, ceil_mode=0):
+        assert ceil_mode == 0
         if len(kernel_shape) == 2:
             assert x.data_format is InterleavedImageBatch
             if pads == (0, 0, 0, 0):
@@ -356,7 +357,6 @@ class TfKerasOperations(Operations):
             raise NotImplementedError
 
     def op_cast(self, x, to):
-        assert x.data_format is OnnxConstant
         dtype = {
             0: None, # UNDEFINED
             1: np.float,
@@ -379,12 +379,21 @@ class TfKerasOperations(Operations):
             # // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
             #BFLOAT16 = 16;
         }[to]
-        return [self.make_constant(x.astype(dtype))]
+        if x.data_format is OnnxConstant:
+            return [self.make_constant(x.astype(dtype))]
+        else:
+            out = self.keras.backend.cast(x, dtype)
+            out.data_format = x.data_format
+            return [out]
 
     def op_mul(self, a, b):
-        assert a.data_format is OnnxConstant
-        assert b.data_format is OnnxConstant
-        return [self.make_constant(a * b)]
+        assert a.data_format is b.data_format
+        if a.data_format is OnnxConstant:
+            return [self.make_constant(a * b)]
+        else:
+            out = tf.keras.layers.Multiply()([a, b])
+            out.data_format = a.data_format
+            return [out]
 
     def op_floor(self, x):
         assert x.data_format is OnnxConstant
@@ -404,8 +413,14 @@ class TfKerasOperations(Operations):
         out.data_format = InterleavedImageBatch
         return [out]
 
-
-
+    def op_equal(self, x, y):
+        assert x.data_format is y.data_format
+        print(x)
+        print(y)
+        # out = self.keras.layers.Lambda(lambda x: self.keras.backend.equal)(x, y)
+        out = self.keras.backend.equal(x, y)
+        out.data_format = x.data_format
+        return [out]
 
 
 def onnx2keras(onnx_model):
