@@ -415,9 +415,23 @@ class TfKerasOperations(Operations):
 
     def op_reshape(self, x, shape):
         assert x.shape[0] == shape[0]
-        out = tf.keras.layers.Reshape(shape[1:])(x)
+        out = self.keras.layers.Reshape(shape[1:])(x)
         out.data_format = VectorBatch
         return [out]
+
+    def op_transpose(self, x, perm):
+        assert x.data_format is OnnxConstant
+        x = x.transpose(perm)
+        x.data_format = OnnxConstant
+        return [x]
+
+    def op_matmul(self, x1, x2):
+        assert x1.data_format is VectorBatch
+        assert x2.data_format is OnnxConstant
+        out = self.keras.backend.dot(x1, tf.convert_to_tensor(x2))
+        out.data_format = VectorBatch
+        return [out]
+
 
 
 def onnx2keras(onnx_model):

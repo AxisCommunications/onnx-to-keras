@@ -186,6 +186,12 @@ class TestOnnx:
         x = np.random.rand(5, 3, 16, 16).astype(np.float32)
         convert_and_compare_output(net, x, image_out=False)
 
+    def test_linear_no_bias(self):
+        net = torch.nn.Sequential(GlobalAvgPool(), torch.nn.Linear(3, 8, bias=False), torch.nn.ReLU())
+        net.eval()
+        x = np.random.rand(5, 3, 16, 16).astype(np.float32)
+        convert_and_compare_output(net, x, image_out=False)
+
     def test_mobilenet_v2(self):
         net = models.mobilenet_v2()
         net.eval()
