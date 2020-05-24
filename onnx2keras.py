@@ -26,6 +26,11 @@ class OptimizationMissingWarning(Warning): pass
 def ensure_data_format(tensor, format):
     if issubclass(tensor.data_format, format):
         return tensor
+    elif tensor.data_format is OnnxConstant and format is InterleavedImageBatch:
+        assert len(tensor.shape) == 4
+        out = tensor.transpose([0, 2, 3, 1])
+        out.data_format = InterleavedImageBatch
+        return out
     elif tensor.data_format is OnnxTensor and format is InterleavedImageBatch:
         assert len(tensor.shape) == 4
         n, c, h, w = tensor.shape
@@ -51,6 +56,13 @@ def ensure_data_format(tensor, format):
 
 def compatible_data_format(format1, format2):
     return issubclass(format1, format2) or issubclass(format2, format1)
+
+def ensure_compatible_data_format(a, b):
+    if compatible_data_format(a.data_format, b.data_format):
+        return a, b
+    if b.data_format is OnnxConstant:
+        return a, ensure_data_format(b, a.data_format)
+    return ensure_data_format(a, b.data_format), b
 
 class Constant(np.ndarray):
     data_format = OnnxConstant
@@ -269,13 +281,13 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_add(self, x1, x2):
-        assert compatible_data_format(x1.data_format, x2.data_format)
+        x1, x2 = ensure_compatible_data_format(x1, x2)
         out = self.keras.layers.Add()([x1, x2])
         out.data_format = x1.data_format
         return [out]
 
     def op_sub(self, x1, x2):
-        assert compatible_data_format(x1.data_format, x2.data_format)
+        x1, x2 = ensure_compatible_data_format(x1, x2)
         out = self.keras.layers.Subtract()([x1, x2])
         out.data_format = x1.data_format
         return [out]
@@ -365,12 +377,8 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_constant(self, value):
-        if len(value.shape) == 4:
-            out = value.transpose([0, 2, 3, 1]) # FIXME: transpose in ensure_data_format
-            out.data_format = InterleavedImageBatch
-        else:
-            out = value
-            out.data_format = OnnxConstant
+        out = value
+        out.data_format = OnnxConstant
         return [out]
 
     def op_shape(self, x):
@@ -414,7 +422,7 @@ class TfKerasOperations(Operations):
             return [out]
 
     def op_mul(self, a, b):
-        assert compatible_data_format(a.data_format, b.data_format)
+        a, b = ensure_compatible_data_format(a, b)        
         if a.data_format is OnnxConstant:
             return [self.make_constant(a * b)]
         else:
@@ -441,7 +449,7 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_equal(self, x, y):
-        assert compatible_data_format(x.data_format, y.data_format)
+        x, y = ensure_compatible_data_format(x, y)
         out = self.keras.backend.equal(x, y)
         out.data_format = x.data_format
         return [out]
