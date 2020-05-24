@@ -1,3 +1,4 @@
+import warnings
 from functools import partial
 
 import onnx
@@ -15,9 +16,41 @@ class Operations:
         # print()
         return getattr(self, 'op_' + op_type.lower())(*inputs, **attrs)
 
-class OnnxConstant: pass
-class InterleavedImageBatch: pass
-class VectorBatch: pass
+class DataFormat: pass
+class OnnxTensor(DataFormat): pass
+class OnnxConstant(OnnxTensor): pass
+class InterleavedImageBatch(DataFormat): pass
+
+class OptimizationMissingWarning(Warning): pass
+
+def ensure_data_format(tensor, format):
+    if issubclass(tensor.data_format, format):
+        return tensor
+    elif tensor.data_format is OnnxTensor and format is InterleavedImageBatch:
+        assert len(tensor.shape) == 4
+        n, c, h, w = tensor.shape
+        if h == w == 1 or c == 1:
+            out = tf.reshape(tensor, [n, h, w, c])
+        else:
+            out = tf.transpose(tensor, [0, 2, 3, 1])
+            warnings.warn("Transpose inserted. Please report at https://github.com/AxisCommunications/onnx-to-keras/issues", OptimizationMissingWarning)
+        out.data_format = InterleavedImageBatch
+        return out
+    elif tensor.data_format is InterleavedImageBatch and format is OnnxTensor:
+        assert len(tensor.shape) == 4
+        n, h, w, c = tensor.shape
+        if h == w == 1 or c == 1:
+            out = tf.reshape(tensor, [n, c, h, w])
+        else:
+            out = tf.transpose(tensor, [0, 3, 1, 2])
+            warnings.warn("Transpose inserted. Please report at https://github.com/AxisCommunications/onnx-to-keras/issues", OptimizationMissingWarning)
+        out.data_format = OnnxTensor
+        return out
+    else:
+        raise NotImplementedError
+
+def compatible_data_format(format1, format2):
+    return issubclass(format1, format2) or issubclass(format2, format1)
 
 class Constant(np.ndarray):
     data_format = OnnxConstant
@@ -51,10 +84,9 @@ class TfKerasOperations(Operations):
         return tensor
 
     def op_conv(self, x, weights, bias=None, kernel_shape=None, strides=None, pads=None, dilations=None, group=None):
-        assert weights.data_format is OnnxConstant # XXX Assumes no ops on weights
-        assert bias is None or bias.data_format is OnnxConstant # XXX Assumes no ops on weights
+        weights = ensure_data_format(weights, OnnxConstant)  # XXX Assumes no ops on weights
         if len(kernel_shape) == 2:
-            assert x.data_format is InterleavedImageBatch
+            x = ensure_data_format(x, InterleavedImageBatch)
             assert kernel_shape == weights.shape[2:4]
             if group == 1:
                 ConvClass = self.keras.layers.Conv2D
@@ -90,6 +122,7 @@ class TfKerasOperations(Operations):
                                  dilation_rate=dilations, padding=padding,
                                  kernel_initializer=weights_initializer, use_bias=False)
             else:
+                bias = ensure_data_format(bias, OnnxConstant)  # XXX Assumes no ops on weights
                 bias_initializer = self.keras.initializers.Constant(bias.view(np.ndarray))
                 conv = ConvClass(weights.shape[3], kernel_shape, strides,
                                  dilation_rate=dilations, padding=padding,
@@ -111,7 +144,7 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_prelu(self, x, alpha):
-        assert alpha.data_format is OnnxConstant # XXX Assumes no ops on alpha
+        alpha = ensure_data_format(alpha, OnnxConstant)  # XXX Assumes no ops on alpha
         if len(alpha) == 1:
             shared = list(range(1, len(x.shape)))
             alpha = alpha.reshape((1,) * (len(x.shape) - 1))
@@ -127,7 +160,7 @@ class TfKerasOperations(Operations):
     def op_maxpool(self, x, kernel_shape, pads, strides, ceil_mode=0):
         assert ceil_mode == 0
         if len(kernel_shape) == 2:
-            assert x.data_format is InterleavedImageBatch
+            x = ensure_data_format(x, InterleavedImageBatch)
             if pads == (0, 0, 0, 0):
                 padding = 'valid'
             else:
@@ -158,17 +191,17 @@ class TfKerasOperations(Operations):
         assert pads is not None
         assert dilations is not None
         assert group is not None
-        assert weights.data_format is OnnxConstant # XXX Assumes no ops on weights
+        weights = ensure_data_format(weights, OnnxConstant)  # XXX Assumes no ops on weights
         if bias is None:
             use_bias = False
             bias_initializer = None
         else:
-            assert bias.data_format is OnnxConstant # XXX Assumes no ops on weights
+            bias = ensure_data_format(bias, OnnxConstant)  # XXX Assumes no ops on weights
             use_bias = True
             bias_initializer = self.keras.initializers.Constant(bias.view(np.ndarray))
 
         if len(kernel_shape) == 2:
-            assert x.data_format is InterleavedImageBatch
+            x = ensure_data_format(x,  InterleavedImageBatch)
             assert kernel_shape == weights.shape[2:4]
             if group != 1:
                 raise NotImplementedError
@@ -215,6 +248,7 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_unsqueeze(self, x, axes):
+        x = ensure_data_format(x, OnnxTensor)
         out = x
         if isinstance(x, Constant):
             for ax in sorted(axes):
@@ -223,7 +257,7 @@ class TfKerasOperations(Operations):
         else:
             for ax in sorted(axes):
                 out = self.keras.backend.expand_dims(out, ax)
-            out.data_format = None
+            out.data_format = OnnxTensor
         return [out]
 
     def op_clip(self, x, min, max):
@@ -235,41 +269,41 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_add(self, x1, x2):
-        assert x1.data_format == x2.data_format
+        assert compatible_data_format(x1.data_format, x2.data_format)
         out = self.keras.layers.Add()([x1, x2])
         out.data_format = x1.data_format
         return [out]
 
     def op_sub(self, x1, x2):
-        assert x1.data_format == x2.data_format
+        assert compatible_data_format(x1.data_format, x2.data_format)
         out = self.keras.layers.Subtract()([x1, x2])
         out.data_format = x1.data_format
         return [out]
 
     def op_reducemean(self, x, axes, keepdims):
-        assert x.data_format is InterleavedImageBatch
+        x = ensure_data_format(x, InterleavedImageBatch)
         if axes == (2, 3) and keepdims == 0:
             out = self.keras.layers.GlobalAveragePooling2D()(x)
-            out.data_format = VectorBatch
+            out.data_format = OnnxTensor
         else:
             raise NotImplementedError
 
         return [out]
 
     def op_gemm(self, x, weights, bias, beta, transB, alpha):
-        assert x.data_format is VectorBatch
+        x = ensure_data_format(x, OnnxTensor)
         if beta == 1.0 and transB == 1 and alpha == 1.0:
             weights_initializer = self.keras.initializers.Constant(weights.view(np.ndarray).T)
             bias_initializer = self.keras.initializers.Constant(bias.view(np.ndarray))
             out = self.keras.layers.Dense(weights.shape[0], kernel_initializer=weights_initializer,
                                           bias_initializer=bias_initializer)(x)
-            out.data_format = VectorBatch
+            out.data_format = OnnxTensor
         else:
             raise NotImplementedError
         return [out]
 
     def op_pad(self, x, pads, mode, value=0.0):
-        assert x.data_format is InterleavedImageBatch
+        x = ensure_data_format(x, InterleavedImageBatch)
         if mode == b'constant' and len(pads) == 8:
             assert len(x.shape) * 2 == len(pads)
             if pads[0] == pads[1] == pads[4] == pads[5] == 0:
@@ -288,7 +322,7 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_averagepool(self, x, kernel_shape, pads, strides):
-        assert x.data_format is InterleavedImageBatch
+        x = ensure_data_format(x, InterleavedImageBatch)
         if len(x.shape) == 4:
             if pads == (0,0,0,0):
                 padding = 'valid'
@@ -301,7 +335,7 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_globalaveragepool(self, x):
-        assert x.data_format is InterleavedImageBatch
+        x = ensure_data_format(x, InterleavedImageBatch)
         if len(x.shape) == 4:
             out = self.keras.backend.mean(x, axis=[1, 2], keepdims=True)
         else:
@@ -314,26 +348,25 @@ class TfKerasOperations(Operations):
             out = self.keras.layers.Flatten()(x)
         else:
             raise NotImplementedError
-        out.data_format = VectorBatch
+        out.data_format = OnnxTensor
         return [out]
 
     def op_slice(self, x, axes, starts, ends):
-        if x.data_format is InterleavedImageBatch:
+        if x.data_format is OnnxConstant:
+            if axes != (0,):
+                raise NotImplementedError
+            out = self.make_constant(x[starts[0]:ends[0]])     
+        else:
+            x = ensure_data_format(x, InterleavedImageBatch)
             if axes != (1,) or len(x.shape) != 4 or starts[0] == ends[0]:
                 raise NotImplementedError
             out = x[:,:,:,starts[0]:ends[0]]
             out.data_format = InterleavedImageBatch
-        elif x.data_format is OnnxConstant:
-            if axes != (0,):
-                raise NotImplementedError
-            out = self.make_constant(x[starts[0]:ends[0]])
-        else:
-            raise NotImplementedError
         return [out]
 
     def op_constant(self, value):
         if len(value.shape) == 4:
-            out = value.transpose([0, 2, 3, 1])
+            out = value.transpose([0, 2, 3, 1]) # FIXME: transpose in ensure_data_format
             out.data_format = InterleavedImageBatch
         else:
             out = value
@@ -344,7 +377,7 @@ class TfKerasOperations(Operations):
         return [self.make_constant(list(map(int, x.shape)))]
 
     def op_gather(self, x, indices, axis=0):
-        assert x.data_format is OnnxConstant
+        x = ensure_data_format(x, OnnxConstant)
         if axis == 0:
             return [self.make_constant(x[indices])]
         else:
@@ -381,7 +414,7 @@ class TfKerasOperations(Operations):
             return [out]
 
     def op_mul(self, a, b):
-        assert a.data_format is b.data_format
+        assert compatible_data_format(a.data_format, b.data_format)
         if a.data_format is OnnxConstant:
             return [self.make_constant(a * b)]
         else:
@@ -390,57 +423,58 @@ class TfKerasOperations(Operations):
             return [out]
 
     def op_floor(self, x):
-        assert x.data_format is OnnxConstant
+        x = ensure_data_format(x, OnnxConstant)
         return [self.make_constant(np.floor(x))]
 
     def op_div(self, a, b):
-        assert a.data_format is OnnxConstant
-        assert b.data_format is OnnxConstant
+        a = ensure_data_format(a, OnnxConstant)
+        b = ensure_data_format(b, OnnxConstant)
         return [self.make_constant(a / b)]
 
     def op_upsample(self, x, scales, mode='nearest'):
         assert scales[0] == scales[1] == 1
         assert len(scales) == 4
         assert mode in (b'nearest', b'bilinear')
-        assert x.data_format is InterleavedImageBatch
+        x = ensure_data_format(x, InterleavedImageBatch)
         out = tf.keras.layers.UpSampling2D(size=scales[2:].astype(int), interpolation=mode.decode())(x)
         out.data_format = InterleavedImageBatch
         return [out]
 
     def op_equal(self, x, y):
-        assert x.data_format is y.data_format
+        assert compatible_data_format(x.data_format, y.data_format)
         out = self.keras.backend.equal(x, y)
         out.data_format = x.data_format
         return [out]
 
     def op_reshape(self, x, shape):
+        x = ensure_data_format(x, OnnxTensor)
         assert x.shape[0] == shape[0]
         out = self.keras.layers.Reshape(shape[1:])(x)
-        out.data_format = VectorBatch
+        out.data_format = OnnxTensor
         return [out]
 
     def op_transpose(self, x, perm):
-        assert x.data_format is OnnxConstant
+        x = ensure_data_format(x, OnnxConstant)
         x = x.transpose(perm)
         x.data_format = OnnxConstant
         return [x]
 
     def op_matmul(self, x1, x2):
+        x1 = ensure_data_format(x1, OnnxTensor)
+        x2 = ensure_data_format(x2, OnnxTensor)
+        if x1.data_format is OnnxConstant:
+            x1 = tf.convert_to_tensor(x1)
+        if x2.data_format is OnnxConstant:
+            x2 = tf.convert_to_tensor(x2)
         if len(x1.shape) == 2:
-            assert x1.data_format is VectorBatch
-            assert x2.data_format is OnnxConstant
-            assert len(x1.shape) == 2
-            out = self.keras.backend.dot(x1, tf.convert_to_tensor(x2))
+            assert len(x2.shape) == 2
+            out = self.keras.backend.dot(x1, x2)
         elif len(x1.shape) == 3:
-            assert x1.data_format is VectorBatch
-            assert x2.data_format is VectorBatch
             assert len(x2.shape) == 3
             assert x1.shape[0] == x2.shape[0] == 1
             out = self.keras.backend.dot(x1, x2)
             out = tf.reshape(out, (1, out.shape[1], out.shape[3]))
         elif len(x1.shape) == 4:
-            assert x1.data_format is VectorBatch
-            assert x2.data_format is VectorBatch
             assert len(x2.shape) == 4
             assert x1.shape[0] == x2.shape[0] == 1
             assert x1.shape[1] == x2.shape[1] == 1
@@ -448,7 +482,7 @@ class TfKerasOperations(Operations):
             out = tf.reshape(out, (1, 1, out.shape[2], out.shape[5]))
         else:
             raise NotImplementedError
-        out.data_format = VectorBatch
+        out.data_format = OnnxTensor
         return [out]
 
 

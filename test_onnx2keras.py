@@ -1,3 +1,4 @@
+import warnings
 from io import BytesIO
 from tempfile import NamedTemporaryFile
 
@@ -8,8 +9,10 @@ import torch.nn.functional as F
 from torchvision import models
 from numpy.testing import assert_almost_equal
 import numpy as np
+import tensorflow as tf
 
-from onnx2keras import onnx2keras
+from onnx2keras import onnx2keras, compatible_data_format, OnnxConstant, OnnxTensor, InterleavedImageBatch, \
+    ensure_data_format, OptimizationMissingWarning
 
 
 def make_onnx_model(net, indata):
@@ -19,11 +22,16 @@ def make_onnx_model(net, indata):
     return onnx.load(fd)
 
 
-def convert_and_compare_output(net, indata, precition=5, image_out=True, savable=True):
+def convert_and_compare_output(net, indata, precition=5, image_out=True, savable=True, missing_optimizations=False):
     torch_indata = torch.tensor(indata)
     y1 = net(torch_indata).detach().numpy()
     onnx_model = make_onnx_model(net, torch.zeros_like(torch_indata))
-    kernas_net = onnx2keras(onnx_model)
+    with warnings.catch_warnings(record=True) as warns:
+        warnings.simplefilter("always")
+        kernas_net = onnx2keras(onnx_model)
+        warns = [w for w in warns if w.category is OptimizationMissingWarning]
+        if not missing_optimizations:
+            assert len(warns) == 0
     if savable:
         with NamedTemporaryFile() as f:
             f.close()
@@ -37,6 +45,19 @@ def convert_and_compare_output(net, indata, precition=5, image_out=True, savable
 class GlobalAvgPool(Module):
     def forward(self, x):
         return x.mean([2, 3])
+
+
+class TestUtils:
+    def test_compatible_data_format(self):
+        assert compatible_data_format(OnnxConstant, OnnxConstant)
+        assert compatible_data_format(OnnxTensor, OnnxTensor)
+        assert compatible_data_format(OnnxConstant, OnnxTensor)
+        assert compatible_data_format(OnnxTensor, OnnxConstant)
+        assert compatible_data_format(InterleavedImageBatch, InterleavedImageBatch)
+        assert not compatible_data_format(OnnxTensor, InterleavedImageBatch)
+        assert not compatible_data_format(OnnxConstant, InterleavedImageBatch)
+        assert not compatible_data_format(InterleavedImageBatch, OnnxTensor)
+        assert not compatible_data_format(InterleavedImageBatch, OnnxConstant)
 
 
 class TestOnnx:
@@ -304,6 +325,17 @@ class TestOnnx:
         net = torch.nn.Sequential(Net(), torch.nn.ReLU())
         x = np.random.rand(1, 1, 16, 16).astype(np.float32)
         convert_and_compare_output(net, x, image_out=False)
+
+    def test_unsupported_optimasation(self):
+        class Reshape(Module):
+            def forward(self, x):
+                return x.reshape(4, 4, 16, 16)
+        net = torch.nn.Sequential(GlobalAvgPool(), torch.nn.Linear(3, 4 * 16 * 16), Reshape(),
+                                  torch.nn.Conv2d(4, 3, 3), torch.nn.ReLU())
+        net.eval()
+        x = np.random.rand(4, 3, 16, 16).astype(np.float32)
+        convert_and_compare_output(net, x, missing_optimizations=True)
+
 
 
     # def test_inception_v3(self):
