@@ -287,6 +287,24 @@ class TestOnnx:
         x = np.random.rand(4, 3, 16, 16).astype(np.float32)
         convert_and_compare_output(net, x, image_out=False)
 
+    def test_bmm(self):
+        class Net(Module):
+            def forward(self, x):
+                x = x.reshape(1, 16, 16)
+                return torch.bmm(x, x)
+        net = torch.nn.Sequential(Net(), torch.nn.ReLU())
+        x = np.random.rand(1, 1, 16, 16).astype(np.float32)
+        convert_and_compare_output(net, x, image_out=False)
+
+    def test_matmul(self):
+        class Net(Module):
+            def forward(self, x):
+                x = x.reshape(1, 1, 16, 16)
+                return torch.matmul(x, x)
+        net = torch.nn.Sequential(Net(), torch.nn.ReLU())
+        x = np.random.rand(1, 1, 16, 16).astype(np.float32)
+        convert_and_compare_output(net, x, image_out=False)
+
 
     # def test_inception_v3(self):
     #     net = models.Inception3(aux_logits=False)

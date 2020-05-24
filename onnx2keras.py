@@ -426,9 +426,28 @@ class TfKerasOperations(Operations):
         return [x]
 
     def op_matmul(self, x1, x2):
-        assert x1.data_format is VectorBatch
-        assert x2.data_format is OnnxConstant
-        out = self.keras.backend.dot(x1, tf.convert_to_tensor(x2))
+        if len(x1.shape) == 2:
+            assert x1.data_format is VectorBatch
+            assert x2.data_format is OnnxConstant
+            assert len(x1.shape) == 2
+            out = self.keras.backend.dot(x1, tf.convert_to_tensor(x2))
+        elif len(x1.shape) == 3:
+            assert x1.data_format is VectorBatch
+            assert x2.data_format is VectorBatch
+            assert len(x2.shape) == 3
+            assert x1.shape[0] == x2.shape[0] == 1
+            out = self.keras.backend.dot(x1, x2)
+            out = tf.reshape(out, (1, out.shape[1], out.shape[3]))
+        elif len(x1.shape) == 4:
+            assert x1.data_format is VectorBatch
+            assert x2.data_format is VectorBatch
+            assert len(x2.shape) == 4
+            assert x1.shape[0] == x2.shape[0] == 1
+            assert x1.shape[1] == x2.shape[1] == 1
+            out = self.keras.backend.dot(x1, x2)
+            out = tf.reshape(out, (1, 1, out.shape[2], out.shape[5]))
+        else:
+            raise NotImplementedError
         out.data_format = VectorBatch
         return [out]
 
