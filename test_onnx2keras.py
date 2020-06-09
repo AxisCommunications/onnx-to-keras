@@ -352,6 +352,14 @@ class TestOnnx:
         x = np.random.rand(4, 3, 16, 16).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_neg(self):
+        class Neg(Module):
+            def forward(self, x):
+                return -x
+        net = torch.nn.Sequential(Neg(), torch.nn.ReLU())
+        x = np.random.rand(4, 3, 16, 16).astype(np.float32)
+        convert_and_compare_output(net, x)
+
 
 
     # def test_inception_v3(self):

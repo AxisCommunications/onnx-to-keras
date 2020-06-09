@@ -503,6 +503,11 @@ class TfKerasOperations(Operations):
         out.data_format = x.data_format
         return [out]
 
+    def op_neg(self, x):
+        out = -x
+        out.data_format = x.data_format
+        return [out]
+
 
 
 def onnx2keras(onnx_model):
