@@ -493,6 +493,11 @@ class TfKerasOperations(Operations):
         out.data_format = OnnxTensor
         return [out]
 
+    def op_sqrt(self, x):
+        out = self.keras.backend.sqrt(x)
+        out.data_format = x.data_format
+        return [out]
+
 
 
 def onnx2keras(onnx_model):
