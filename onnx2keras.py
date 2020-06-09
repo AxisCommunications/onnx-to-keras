@@ -498,6 +498,11 @@ class TfKerasOperations(Operations):
         out.data_format = x.data_format
         return [out]
 
+    def op_abs(self, x):
+        out = self.keras.backend.abs(x)
+        out.data_format = x.data_format
+        return [out]
+
 
 
 def onnx2keras(onnx_model):

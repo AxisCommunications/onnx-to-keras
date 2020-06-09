@@ -344,6 +344,14 @@ class TestOnnx:
         x = np.random.rand(4, 3, 16, 16).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_abs(self):
+        class Abs(Module):
+            def forward(self, x):
+                return torch.abs(x)
+        net = torch.nn.Sequential(Abs(), torch.nn.ReLU())
+        x = np.random.rand(4, 3, 16, 16).astype(np.float32)
+        convert_and_compare_output(net, x)
+
 
 
     # def test_inception_v3(self):
