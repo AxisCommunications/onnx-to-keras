@@ -442,7 +442,7 @@ class TfKerasOperations(Operations):
     def op_upsample(self, x, scales, mode='nearest'):
         assert scales[0] == scales[1] == 1
         assert len(scales) == 4
-        assert mode in (b'nearest', b'bilinear')
+        assert mode in (b'nearest',)
         x = ensure_data_format(x, InterleavedImageBatch)
         out = tf.keras.layers.UpSampling2D(size=scales[2:].astype(int), interpolation=mode.decode())(x)
         out.data_format = InterleavedImageBatch

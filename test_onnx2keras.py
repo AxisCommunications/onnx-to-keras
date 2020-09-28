@@ -15,17 +15,17 @@ from onnx2keras import onnx2keras, compatible_data_format, OnnxConstant, OnnxTen
     ensure_data_format, OptimizationMissingWarning
 
 
-def make_onnx_model(net, indata):
+def make_onnx_model(net, indata, opset_version=None):
     fd = BytesIO()
-    torch.onnx.export(net, indata, fd)
+    torch.onnx.export(net, indata, fd, opset_version=opset_version)
     fd.seek(0)
     return onnx.load(fd)
 
 
-def convert_and_compare_output(net, indata, precition=5, image_out=True, savable=True, missing_optimizations=False):
+def convert_and_compare_output(net, indata, precition=5, image_out=True, savable=True, missing_optimizations=False, opset_version=None):
     torch_indata = torch.tensor(indata)
     y1 = net(torch_indata).detach().numpy()
-    onnx_model = make_onnx_model(net, torch.zeros_like(torch_indata))
+    onnx_model = make_onnx_model(net, torch.zeros_like(torch_indata), opset_version)
     with warnings.catch_warnings(record=True) as warns:
         warnings.simplefilter("always")
         kernas_net = onnx2keras(onnx_model)
