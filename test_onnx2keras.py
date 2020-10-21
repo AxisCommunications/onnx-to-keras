@@ -342,7 +342,8 @@ class TestOnnx:
                 return torch.sqrt(x)
         net = torch.nn.Sequential(Sq(), torch.nn.ReLU())
         x = np.random.rand(4, 3, 16, 16).astype(np.float32)
-        convert_and_compare_output(net, x)
+        is_tf1 = tuple(map(int, tf.__version__.split('.'))) < (2, 0, 0)
+        convert_and_compare_output(net, x, savable=(not is_tf1))
 
     def test_abs(self):
         class Abs(Module):
