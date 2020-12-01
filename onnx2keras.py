@@ -197,7 +197,8 @@ class TfKerasOperations(Operations):
             raise NotImplementedError
         return [out]
 
-    def op_convtranspose(self, x, weights, bias=None, kernel_shape=None, strides=None, pads=None, dilations=None, group=None):
+    def op_convtranspose(self, x, weights, bias=None, kernel_shape=None, strides=None, pads=None, dilations=None,
+                         group=None, output_padding=(0, 0)):
         assert kernel_shape is not None
         assert strides is not None
         assert pads is not None
@@ -210,32 +211,52 @@ class TfKerasOperations(Operations):
         else:
             bias = ensure_data_format(bias, OnnxConstant)  # XXX Assumes no ops on weights
             use_bias = True
-            bias_initializer = self.keras.initializers.Constant(bias.view(np.ndarray))
 
         if len(kernel_shape) == 2:
             x = ensure_data_format(x,  InterleavedImageBatch)
             assert kernel_shape == weights.shape[2:4]
-            if group != 1:
-                raise NotImplementedError
             _, h_in, w_in, _ = x.shape
-            h_out = (h_in - 1) * strides[0] - 2 * pads[0] + dilations[0] * (kernel_shape[0] - 1) + 1 # FIXME: + output_padding[0]
-            w_out=(w_in - 1) * strides[1] - 2 * pads[1] + dilations[1] * (kernel_shape[1] - 1) + 1 # FIXME: + output_padding[1]
+            h_out = (h_in - 1) * strides[0] - 2 * pads[0] + dilations[0] * (kernel_shape[0] - 1) + 1 + output_padding[0]
+            w_out=(w_in - 1) * strides[1] - 2 * pads[1] + dilations[1] * (kernel_shape[1] - 1) + 1 + output_padding[1]
+
 
             if pads == (0,0,0,0):
                 padding = 'valid'
-            elif h_out == strides[0] * h_in and w_out == strides[1] * w_in:
+            elif h_out == strides[0] * h_in and w_out == strides[1] * w_in and output_padding==(0,0):
                 padding = 'same'
+                output_padding = None  # output_padding overrides the padding argument in keras
             else:
                 raise NotImplementedError
             # Tf; filter_height, filter_width, out_channels, in_channels
             # Torch: (in_channels, out_channels, kH, kW)
             weights = weights.transpose(2, 3, 1, 0)
-            weights_initializer = self.keras.initializers.Constant(weights.view(np.ndarray))
-            conv = self.keras.layers.Conv2DTranspose(weights.shape[2], kernel_shape, strides,
-                                                     dilation_rate=dilations, padding=padding,
-                                                     kernel_initializer=weights_initializer,
-                                                     use_bias=use_bias, bias_initializer=bias_initializer)
-            out = conv(x)
+            if group == 1:
+                weights_initializer = self.keras.initializers.Constant(weights.view(np.ndarray))
+                if use_bias:
+                    bias_initializer = self.keras.initializers.Constant(bias.view(np.ndarray))
+                conv = self.keras.layers.Conv2DTranspose(weights.shape[2], kernel_shape, strides,
+                                                         dilation_rate=dilations, padding=padding,
+                                                         kernel_initializer=weights_initializer,
+                                                         use_bias=use_bias, bias_initializer=bias_initializer,
+                                                         output_padding=output_padding)
+                out = conv(x)
+            else:
+                splits = tf.split(x, group, axis=-1)
+                convolved_splits = []
+                n = weights.shape[3] // group
+                assert group * n == weights.shape[3]
+                for i, split in enumerate(splits):
+                    weights_initializer = self.keras.initializers.Constant(weights[:, :, :, i*n:(i+1)*n].view(np.ndarray))
+                    if use_bias:
+                        bias_initializer = self.keras.initializers.Constant(bias[i*n:(i+1)*n].view(np.ndarray))
+                    conv = self.keras.layers.Conv2DTranspose(weights.shape[2], kernel_shape, strides,
+                                                             dilation_rate=dilations, padding=padding,
+                                                             kernel_initializer=weights_initializer,
+                                                             use_bias=use_bias, bias_initializer=bias_initializer,
+                                                             output_padding=output_padding)
+                    convolved_splits.append(conv(split))
+                out = tf.concat(convolved_splits, -1)
+
             assert out.shape[1] == h_out
             assert out.shape[2] == w_out
             out.data_format = InterleavedImageBatch

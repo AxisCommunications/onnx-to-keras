@@ -126,6 +126,26 @@ class TestOnnx:
         x = np.random.rand(1, 3, 112, 112).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_conv_transpose_grouped_no_bias(self):
+        net = torch.nn.Sequential(torch.nn.ConvTranspose2d(16, 16, 5, 2, groups=2, bias=False), torch.nn.ReLU())
+        x = np.random.rand(1, 16, 112, 112).astype(np.float32)
+        convert_and_compare_output(net, x)
+
+    def test_conv_transpose_grouped_bias(self):
+        net = torch.nn.Sequential(torch.nn.ConvTranspose2d(16, 16, 5, 2, groups=2), torch.nn.ReLU())
+        x = np.random.rand(1, 16, 112, 112).astype(np.float32)
+        convert_and_compare_output(net, x)
+
+    def test_conv_transpose_grouped_fully(self):
+        net = torch.nn.Sequential(torch.nn.ConvTranspose2d(16, 16, 5, 2, groups=16), torch.nn.ReLU())
+        x = np.random.rand(1, 16, 112, 112).astype(np.float32)
+        convert_and_compare_output(net, x)
+
+    def test_conv_transpose_output_padding(self):
+        net = torch.nn.Sequential(torch.nn.ConvTranspose2d(16, 16, 3, 2, output_padding=1), torch.nn.ReLU())
+        x = np.random.rand(1, 16, 112, 112).astype(np.float32)
+        convert_and_compare_output(net, x)
+
     def test_conv_stride2_padding_strange(self):
         net = torch.nn.Sequential(torch.nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3))
         x = np.random.rand(1, 3, 384, 544).astype(np.float32)
