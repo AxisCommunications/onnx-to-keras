@@ -155,6 +155,11 @@ class TfKerasOperations(Operations):
         out.data_format = x.data_format
         return [out]
 
+    def op_softmax(self, x, axis):
+        out = self.keras.activations.softmax(x, axis=axis)
+        out.data_format = x.data_format
+        return [out]
+
     def op_prelu(self, x, alpha):
         alpha = ensure_data_format(alpha, OnnxConstant)  # XXX Assumes no ops on alpha
         if len(alpha) == 1:
