@@ -398,6 +398,22 @@ class TestOnnx:
         x = np.random.rand(4, 3, 16, 32).astype(np.float32)
         convert_and_compare_output(net, x, opset_version=11)
 
+    def test_mul(self):
+        class Mul(Module):
+            def forward(self, x):
+                return x * x
+        net = torch.nn.Sequential(Mul(), torch.nn.ReLU())
+        x = np.random.rand(4, 3, 16, 32).astype(np.float32)
+        convert_and_compare_output(net, x, opset_version=11)
+
+    def test_mul_const(self):
+        class Mul(Module):
+            def forward(self, x):
+                return (2 * x) * (x * 2)
+        net = torch.nn.Sequential(Mul(), torch.nn.ReLU())
+        x = np.random.rand(4, 3, 16, 32).astype(np.float32)
+        convert_and_compare_output(net, x, opset_version=11)
+
 
 
     # def test_inception_v3(self):

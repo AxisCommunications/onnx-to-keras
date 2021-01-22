@@ -475,7 +475,13 @@ class TfKerasOperations(Operations):
             return [out]
 
     def op_mul(self, a, b):
-        a, b = ensure_compatible_data_format(a, b)        
+        if b.shape == ():
+            a, b = b, a
+        if a.shape == ():
+            out = a * b
+            out.data_format = b.data_format
+            return [out]
+        a, b = ensure_compatible_data_format(a, b)
         if a.data_format is OnnxConstant:
             return [self.make_constant(a * b)]
         else:
