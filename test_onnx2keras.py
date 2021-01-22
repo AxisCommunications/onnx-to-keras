@@ -381,6 +381,18 @@ class TestOnnx:
         x = np.random.rand(4, 3, 16, 16).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_center_crop(self):
+        class CenterCrop8x8(Module):
+            def forward(self, x):
+                n, c, h, w = x.shape
+                dx = (w - 8) // 2
+                dy = (h - 8) // 2
+                crop = x[:, :, dy:dy+8, dx:dx+8]
+                return crop
+        net = torch.nn.Sequential(CenterCrop8x8(), torch.nn.ReLU())
+        x = np.random.rand(4, 3, 16, 32).astype(np.float32)
+        convert_and_compare_output(net, x, opset_version=11)
+
 
 
     # def test_inception_v3(self):

@@ -389,16 +389,34 @@ class TfKerasOperations(Operations):
         out.data_format = OnnxTensor
         return [out]
 
-    def op_slice(self, x, axes, starts, ends):
+    def op_slice(self, x, starts, ends, axes=None, steps=None):
+        if axes is None:
+            axes = range(len(starts))
+        if steps is None:
+            steps = [1] * len(starts)
         if x.data_format is OnnxConstant:
             if axes != (0,):
                 raise NotImplementedError
-            out = self.make_constant(x[starts[0]:ends[0]])     
+            out = self.make_constant(x[starts[0]:ends[0]:steps])
         else:
             x = ensure_data_format(x, InterleavedImageBatch)
-            if axes != (1,) or len(x.shape) != 4 or starts[0] == ends[0]:
+            if len(x.shape) != 4:
                 raise NotImplementedError
-            out = x[:,:,:,starts[0]:ends[0]]
+            if len(axes) == 1 and starts[0] != ends[0]:
+                if axes[0] == 0:
+                    out = x[starts[0]:ends[0]:steps[0],:,:,:]
+                elif axes[0] == 1:
+                    out = x[:,:,:,starts[0]:ends[0]:steps[0]]
+                elif axes[0] == 2:
+                    out = x[:,starts[0]:ends[0]:steps[0],:,:]
+                elif axes[0] == 3:
+                    out = x[:,:,starts[0]:ends[0]:steps[0],:]
+                else:
+                    raise NotImplementedError
+            elif tuple(axes) == (2,3) and starts[0] != ends[0] and starts[1] != ends[1]:
+                out = x[:,starts[0]:ends[0]:steps[0],starts[1]:ends[1]:steps[1],:]
+            else:
+                raise NotImplementedError
             out.data_format = InterleavedImageBatch
         return [out]
 
@@ -408,7 +426,11 @@ class TfKerasOperations(Operations):
         return [out]
 
     def op_shape(self, x):
-        return [self.make_constant(list(map(int, x.shape)))]
+        shape = list(map(int, x.shape))
+        if x.data_format is InterleavedImageBatch:
+            n, h, w, f = shape
+            shape = [n, f, h, w]
+        return [self.make_constant(shape)]
 
     def op_gather(self, x, indices, axis=0):
         x = ensure_data_format(x, OnnxConstant)
@@ -570,7 +592,7 @@ def main(infile, outfile=None, export_saved_model=False):
         outfile += '.h5'
     model = onnx2keras(onnx.load(infile))
     if export_saved_model:
-        tf.keras.experimental.export_saved_model(model, "tst.tf")
+        tf.keras.experimental.export_saved_model(model, export_saved_model)
     else:
         model.save(outfile)
 
