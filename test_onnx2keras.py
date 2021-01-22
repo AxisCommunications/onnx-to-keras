@@ -188,6 +188,11 @@ class TestOnnx:
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_leaky_relu(self):
+        net = torch.nn.Sequential(torch.nn.Conv2d(3, 3, 3), torch.nn.LeakyReLU(), torch.nn.Conv2d(3, 3, 3))
+        x = np.random.rand(1, 3, 224, 224).astype(np.float32)
+        convert_and_compare_output(net, x)
+
     def test_depthwise(self):
         net = torch.nn.Sequential(torch.nn.Conv2d(3, 3, 7, groups=3), torch.nn.ReLU())
         x = np.random.rand(1, 3, 224, 224).astype(np.float32)

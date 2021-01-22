@@ -150,6 +150,11 @@ class TfKerasOperations(Operations):
         out.data_format = x.data_format
         return [out]
 
+    def op_leakyrelu(self, x, alpha):
+        out = self.keras.layers.LeakyReLU(alpha=alpha)(x)
+        out.data_format = x.data_format
+        return [out]
+
     def op_sigmoid(self, x):
         out = self.keras.activations.sigmoid(x)
         out.data_format = x.data_format
