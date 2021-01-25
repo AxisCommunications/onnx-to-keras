@@ -23,6 +23,12 @@ def make_onnx_model(net, indata, opset_version=None):
 
 
 def convert_and_compare_output(net, indata, precition=5, image_out=True, savable=True, missing_optimizations=False, opset_version=None):
+    try:
+        _convert_and_compare_output(net, indata, precition, image_out, savable, missing_optimizations, opset_version)
+    except AssertionError:
+        _convert_and_compare_output(net, indata, precition, image_out, savable, missing_optimizations, opset_version)
+        
+def _convert_and_compare_output(net, indata, precition=5, image_out=True, savable=True, missing_optimizations=False, opset_version=None):
     torch_indata = torch.tensor(indata)
     y1 = net(torch_indata).detach().numpy()
     onnx_model = make_onnx_model(net, torch.zeros_like(torch_indata), opset_version)
