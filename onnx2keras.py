@@ -504,18 +504,23 @@ class TfKerasOperations(Operations):
             return self.op_resize(x, None, scales, coordinate_transformation_mode=b'asymmetric', nearest_mode=b'floor')
         raise NotImplementedError
 
-    def op_resize(self, x, roi, scales, sizes=None, *,
+    def op_resize(self, x, roi, scales=None, sizes=None, *,
                   coordinate_transformation_mode=b"half_pixel", cubic_coeff_a=-0.75, exclude_outside=0,
                   extrapolation_value=0.0, mode=b"nearest", nearest_mode=b"round_prefer_floor"):
-        assert sizes is None
-        assert scales[0] == scales[1] == 1
-        assert len(scales) == 4
         assert cubic_coeff_a == -0.75
         assert exclude_outside == 0
         assert extrapolation_value == 0.0
 
         x = ensure_data_format(x, InterleavedImageBatch)
-        size = [x.shape[1] * int(scales[2]), x.shape[2] * int(scales[3])]
+
+        if sizes is None:
+            assert scales[0] == scales[1] == 1
+            size = [int(x.shape[1] * scales[2]), int(x.shape[2] * scales[3])]
+        else:
+            assert sizes[0] == x.shape[0]
+            assert sizes[1] == x.shape[3]
+            size = sizes[2:4]
+
         if mode == b'nearest' and coordinate_transformation_mode == b'asymmetric' and nearest_mode==b'floor':
             out = tf.compat.v1.image.resize(x, size, ResizeMethodV1.NEAREST_NEIGHBOR)
         elif mode == b'linear' and coordinate_transformation_mode == b'align_corners':
