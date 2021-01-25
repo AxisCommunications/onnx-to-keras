@@ -621,7 +621,8 @@ def main(infile, outfile=None, export_saved_model=False):
         outfile += '.h5'
     model = onnx2keras(onnx.load(infile))
     if export_saved_model:
-        tf.keras.experimental.export_saved_model(model, export_saved_model)
+        import tensorflow.compat.v1 as tf_v1
+        tf_v1.keras.experimental.export_saved_model(model, export_saved_model)
     else:
         model.save(outfile)
 
