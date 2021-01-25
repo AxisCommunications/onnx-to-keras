@@ -314,6 +314,16 @@ class TestOnnx:
         x = np.random.rand(1, 3, 32, 32).astype(np.float32)
         convert_and_compare_output(net, x)
 
+    def test_upsample_nearest_v11(self):
+        net = torch.nn.Sequential(torch.nn.UpsamplingNearest2d(scale_factor=2), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 32, 32).astype(np.float32)
+        convert_and_compare_output(net, x, opset_version=11)
+
+    def test_upsample_bilinear(self):
+        net = torch.nn.Sequential(torch.nn.UpsamplingBilinear2d(scale_factor=2), torch.nn.ReLU())
+        x = np.random.rand(1, 3, 32, 32).astype(np.float32)
+        convert_and_compare_output(net, x, opset_version=11)
+
     def test_eq_mul(self):
         class EqProd(Module):
             def forward(self, x):

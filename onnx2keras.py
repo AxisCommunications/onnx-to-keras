@@ -6,6 +6,7 @@ from onnx import numpy_helper
 import tensorflow as tf
 from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
 import numpy as np
+from tensorflow.python.ops.image_ops_impl import ResizeMethodV1
 
 
 class Operations:
@@ -402,7 +403,7 @@ class TfKerasOperations(Operations):
         if x.data_format is OnnxConstant:
             if axes != (0,):
                 raise NotImplementedError
-            out = self.make_constant(x[starts[0]:ends[0]:steps])
+            out = self.make_constant(x[starts[0]:ends[0]:steps[0]])
         else:
             x = ensure_data_format(x, InterleavedImageBatch)
             if len(x.shape) != 4:
@@ -498,12 +499,29 @@ class TfKerasOperations(Operations):
         b = ensure_data_format(b, OnnxConstant)
         return [self.make_constant(a / b)]
 
-    def op_upsample(self, x, scales, mode='nearest'):
+    def op_upsample(self, x, scales, mode=b'nearest'):
+        if mode == b'nearest':
+            return self.op_resize(x, None, scales, coordinate_transformation_mode=b'asymmetric', nearest_mode=b'floor')
+        raise NotImplementedError
+
+    def op_resize(self, x, roi, scales, sizes=None, *,
+                  coordinate_transformation_mode=b"half_pixel", cubic_coeff_a=-0.75, exclude_outside=0,
+                  extrapolation_value=0.0, mode=b"nearest", nearest_mode=b"round_prefer_floor"):
+        assert sizes is None
         assert scales[0] == scales[1] == 1
         assert len(scales) == 4
-        assert mode in (b'nearest',)
+        assert cubic_coeff_a == -0.75
+        assert exclude_outside == 0
+        assert extrapolation_value == 0.0
+
         x = ensure_data_format(x, InterleavedImageBatch)
-        out = tf.keras.layers.UpSampling2D(size=scales[2:].astype(int), interpolation=mode.decode())(x)
+        size = [x.shape[1] * int(scales[2]), x.shape[2] * int(scales[3])]
+        if mode == b'nearest' and coordinate_transformation_mode == b'asymmetric' and nearest_mode==b'floor':
+            out = tf.compat.v1.image.resize(x, size, ResizeMethodV1.NEAREST_NEIGHBOR)
+        elif mode == b'linear' and coordinate_transformation_mode == b'align_corners':
+            out = tf.compat.v1.image.resize(x, size, ResizeMethodV1.BILINEAR, align_corners=True)
+        else:
+            raise NotImplementedError
         out.data_format = InterleavedImageBatch
         return [out]
 
